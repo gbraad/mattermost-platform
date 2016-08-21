@@ -5,6 +5,7 @@ import $ from 'jquery';
 import ReactDOM from 'react-dom';
 import AppDispatcher from '../dispatcher/app_dispatcher.jsx';
 import Client from 'client/web_client.jsx';
+import EmojiStore from 'stores/emoji_store.jsx';
 import UserStore from 'stores/user_store.jsx';
 import PostDeletedModal from './post_deleted_modal.jsx';
 import PostStore from 'stores/post_store.jsx';
@@ -16,6 +17,7 @@ import FileUpload from './file_upload.jsx';
 import FilePreview from './file_preview.jsx';
 import * as Utils from 'utils/utils.jsx';
 import * as GlobalActions from 'actions/global_actions.jsx';
+import * as PostActions from 'actions/post_actions.jsx';
 
 import Constants from 'utils/constants.jsx';
 
@@ -89,19 +91,41 @@ export default class CreateComment extends React.Component {
     handleSubmit(e) {
         e.preventDefault();
 
-        if (this.state.uploadsInProgress.length > 0) {
-            return;
-        }
-
-        if (this.state.submitting) {
-            return;
-        }
+        const userId = UserStore.getCurrentId();
 
         const post = {};
         post.filenames = [];
         post.message = this.state.messageText;
 
         if (post.message.trim().length === 0 && this.state.previews.length === 0) {
+            return;
+        }
+
+        const isReaction = (/^(\+|\-):([a-zA-Z0-9_-]+):\s*$/).exec(post.message);
+        if (isReaction && EmojiStore.has(isReaction[2])) {
+            const action = isReaction[1];
+
+            const emojiName = isReaction[2];
+            const postId = this.props.latestPostId;
+
+            if (action === '+') {
+                PostActions.addReaction(this.props.channelId, postId, emojiName);
+            } else if (action === '-') {
+                PostActions.removeReaction(this.props.channelId, postId, emojiName);
+            }
+
+            PostStore.storeCurrentDraft(null);
+            PostStore.storeCommentDraft(this.props.rootId, null);
+            this.setState({messageText: '', submitting: false, postError: null, previews: [], serverError: null});
+
+            return;
+        }
+
+        if (this.state.uploadsInProgress.length > 0) {
+            return;
+        }
+
+        if (this.state.submitting) {
             return;
         }
 
@@ -119,9 +143,6 @@ export default class CreateComment extends React.Component {
         }
 
         MessageHistoryStore.storeMessageInHistory(this.state.messageText);
-
-        const userId = UserStore.getCurrentId();
-
         post.channel_id = this.props.channelId;
         post.root_id = this.props.rootId;
         post.parent_id = this.props.rootId;
@@ -442,5 +463,6 @@ export default class CreateComment extends React.Component {
 
 CreateComment.propTypes = {
     channelId: React.PropTypes.string.isRequired,
-    rootId: React.PropTypes.string.isRequired
+    rootId: React.PropTypes.string.isRequired,
+    latestPostId: React.PropTypes.string.isRequired
 };

@@ -117,7 +117,15 @@ class PostStoreClass extends EventEmitter {
 
     getEarliestPost(id) {
         if (this.postsInfo.hasOwnProperty(id)) {
-            return this.postsInfo[id].postList.posts[this.postsInfo[id].postList.order[this.postsInfo[id].postList.order.length - 1]];
+            const postList = this.postsInfo[id].postList;
+
+            for (let i = postList.order.length - 1; i >= 0; i--) {
+                const postId = postList.order[i];
+
+                if (postList.posts[postId].state !== Constants.POST_DELETED) {
+                    return postList.posts[postId];
+                }
+            }
         }
 
         return null;
@@ -125,7 +133,13 @@ class PostStoreClass extends EventEmitter {
 
     getLatestPost(id) {
         if (this.postsInfo.hasOwnProperty(id)) {
-            return this.postsInfo[id].postList.posts[this.postsInfo[id].postList.order[0]];
+            const postList = this.postsInfo[id].postList;
+
+            for (const postId of postList.order) {
+                if (postList.posts[postId].state !== Constants.POST_DELETED) {
+                    return postList.posts[postId];
+                }
+            }
         }
 
         return null;
@@ -291,7 +305,8 @@ class PostStoreClass extends EventEmitter {
             // make sure to copy the post so that component state changes work properly
             postList.posts[post.id] = Object.assign({}, post, {
                 state: Constants.POST_DELETED,
-                filenames: []
+                filenames: [],
+                has_reactions: false
             });
         }
     }
